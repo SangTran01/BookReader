@@ -3,26 +3,15 @@ package ca.mohawk.bookreader;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.facebook.AccessToken;
-import com.facebook.CallbackManager;
-import com.facebook.FacebookCallback;
-import com.facebook.FacebookException;
-import com.facebook.login.LoginResult;
-import com.facebook.login.widget.LoginButton;
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.SignInButton;
-import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
@@ -41,19 +30,13 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int FB_REQUEST_CODE = 1234;
-    private static final int GOOGLE_REQUEST_CODE = 9009;
-    AppDatabase db;
-    String TAG = "main";
+    private static final int REQUEST_CODE = 1000;
+    private final String TAG = "main";
     ArrayList<City> cities = new ArrayList<City>();
 
     //FirebaseAuth
     private FirebaseAuth mAuth;
     List<AuthUI.IdpConfig> providers;
-    Button btnSignOut;
-    private CallbackManager mCallbackManager;
-
-    private GoogleSignInClient mSignInClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,49 +51,12 @@ public class MainActivity extends AppCompatActivity {
         providers = Arrays.asList(
 //                new AuthUI.IdpConfig.PhoneBuilder().build(),
 //                new AuthUI.IdpConfig.EmailBuilder().build(),
+                new AuthUI.IdpConfig.GoogleBuilder().build(),
                 new AuthUI.IdpConfig.FacebookBuilder().build(),
-                new AuthUI.IdpConfig.GoogleBuilder().build()
+                new AuthUI.IdpConfig.TwitterBuilder().build()
         );
 
-        //showSignOnOptions();
-
-        // Initialize Facebook Login button
-        mCallbackManager = CallbackManager.Factory.create();
-
-        //facebook button
-        LoginButton loginButton = findViewById(R.id.buttonFacebookLogin);
-        loginButton.setReadPermissions("email", "public_profile");
-        loginButton.registerCallback(mCallbackManager, new FacebookCallback<LoginResult>() {
-            @Override
-            public void onSuccess(LoginResult loginResult) {
-                Log.d(TAG, "facebook:onSuccess:" + loginResult);
-                firebaseAuthWithFaceBook(loginResult.getAccessToken());
-            }
-
-            @Override
-            public void onCancel() {
-                Log.d(TAG, "facebook:onCancel");
-                // ...
-            }
-
-            @Override
-            public void onError(FacebookException error) {
-                Log.d(TAG, "facebook:onError", error);
-                // ...
-            }
-        });
-
-        //google button
-        SignInButton signInButtonGoogle = findViewById(R.id.buttonGoogleLogin);
-//        signInButtonGoogle.setSize(SignInButton.SIZE_STANDARD);
-
-        // Configure Google Sign In
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(getString(R.string.default_web_client_id))
-                .requestEmail()
-                .build();
-
-        mSignInClient = GoogleSignIn.getClient(this, gso);
+        showSignOnOptions();
 
 
         //-----------------
@@ -157,17 +103,10 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    private void signIn() {
-        Intent intent = mSignInClient.getSignInIntent();
-        startActivityForResult(intent, GOOGLE_REQUEST_CODE);
-    }
-
     @Override
     public void onStart() {
         super.onStart();
-        // Check if user is signed in (non-null) and update UI accordingly.
         FirebaseUser currentUser = mAuth.getCurrentUser();
-
         if (currentUser != null) {
             updateUI(currentUser);
         }
@@ -175,7 +114,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateUI(FirebaseUser currentUser) {
         Toast.makeText(this, "User logged in " + currentUser, Toast.LENGTH_SHORT).show();
-
         Intent accountIntent = new Intent(MainActivity.this, AccountActivity.class);
         startActivity(accountIntent);
         finish();
@@ -185,35 +123,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        // Pass the activity result back to the Facebook SDK
-        mCallbackManager.onActivityResult(requestCode, resultCode, data);
-
-        //----------
-        if (requestCode == FB_REQUEST_CODE) {
+        if (requestCode == REQUEST_CODE) {
             IdpResponse response = IdpResponse.fromResultIntent(data);
 
             if (resultCode == RESULT_OK) {
-                //Get User
                 FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
                 Toast.makeText(this, "" + user.getEmail(), Toast.LENGTH_SHORT).show();
-
-                btnSignOut.setEnabled(true);
             } else {
+                //Toast Provider Error
                 Toast.makeText(this, "" + response.getError().getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        }
-
-        //-------
-        else if (requestCode == GOOGLE_REQUEST_CODE) {
-            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            try {
-                // Google Sign In was successful, authenticate with Firebase
-                GoogleSignInAccount account = task.getResult(ApiException.class);
-                firebaseAuthWithGoogle(account);
-            } catch (ApiException e) {
-                // Google Sign In failed, update UI appropriately
-                Log.w(TAG, "Google sign in failed", e);
-                // ...
             }
         }
     }
@@ -222,8 +140,9 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(
                 AuthUI.getInstance().createSignInIntentBuilder()
                         .setAvailableProviders(providers)
-                        .setIsSmartLockEnabled(false)
-                        .build(), FB_REQUEST_CODE
+                        .setIsSmartLockEnabled(false) //TODO: remove after fixing
+                        .setLogo(R.drawable.ic_launcher_background)
+                        .build(), REQUEST_CODE
         );
     }
 
