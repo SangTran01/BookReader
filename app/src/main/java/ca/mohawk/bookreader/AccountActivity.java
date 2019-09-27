@@ -34,8 +34,6 @@ public class AccountActivity extends AppCompatActivity {
         btnSignOut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                FirebaseAuth.getInstance().signOut();
-//                LoginManager.getInstance().logOut();
                 AuthUI.getInstance()
                         .signOut(getApplicationContext())
                         .addOnCompleteListener(new OnCompleteListener<Void>() {
