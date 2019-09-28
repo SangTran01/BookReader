@@ -16,6 +16,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.IdpResponse;
@@ -23,15 +27,24 @@ import com.firebase.ui.auth.util.ExtraConstants;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.tabs.TabLayout;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class AccountActivity extends AppCompatActivity {
     //FirebaseAuth
     private FirebaseAuth mAuth;
-    Toolbar toolbar;
+    private Toolbar toolbar;
+    private TabLayout tabLayout;
+    private ViewPager viewPager;
     DrawerLayout drawerLayout;
     ActionBarDrawerToggle mDrawerToggle;
+
+
+    //    Custom nav view when signed in?
     NavigationView navigationView;
 
     @NonNull
@@ -46,10 +59,19 @@ public class AccountActivity extends AppCompatActivity {
         setContentView(R.layout.activity_account);
 
         drawerLayout = findViewById(R.id.drawer);
-        toolbar = findViewById(R.id.my_toolbar);
+        toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
+
+        viewPager = findViewById(R.id.viewpager);
+        setupViewPager(viewPager);
+
+        tabLayout = findViewById(R.id.tablayout);
+        tabLayout.setupWithViewPager(viewPager);
+        tabLayout.getTabAt(0).setIcon(R.drawable.baseline_book_white_24);
+        tabLayout.getTabAt(1).setIcon(R.drawable.baseline_camera_alt_white_24);
+        tabLayout.getTabAt(2).setIcon(R.drawable.baseline_favorite_white_24);
 
         mAuth = FirebaseAuth.getInstance();
         mDrawerToggle = new ActionBarDrawerToggle(
@@ -74,6 +96,14 @@ public class AccountActivity extends AppCompatActivity {
         };
         mDrawerToggle.setDrawerIndicatorEnabled(true);
         drawerLayout.addDrawerListener(mDrawerToggle);
+    }
+
+    private void setupViewPager(ViewPager viewPager) {
+        ViewPagerAdapter adapter = new ViewPagerAdapter(getSupportFragmentManager());
+        adapter.addFragment(new RecentsFragment(), "Recents");
+        adapter.addFragment(new RecentsFragment(), "Scan");
+        adapter.addFragment(new FavoritesFragment(), "Favorites");
+        viewPager.setAdapter(adapter);
     }
 
     @Override
@@ -149,5 +179,37 @@ public class AccountActivity extends AppCompatActivity {
         Intent accountIntent = new Intent(AccountActivity.this, MainActivity.class);
         startActivity(accountIntent);
         finish();
+    }
+
+    class ViewPagerAdapter extends FragmentPagerAdapter {
+        private final List<Fragment> mFragmentList = new ArrayList<>();
+        private final List<String> mFragmentTitleList = new ArrayList<>();
+
+        public ViewPagerAdapter(FragmentManager manager) {
+            super(manager);
+        }
+
+        @Override
+        public Fragment getItem(int position) {
+            return mFragmentList.get(position);
+        }
+
+        @Override
+        public int getCount() {
+            return mFragmentList.size();
+        }
+
+        public void addFragment(Fragment fragment, String title) {
+            mFragmentList.add(fragment);
+            mFragmentTitleList.add(title);
+        }
+
+        @Override
+        public CharSequence getPageTitle(int position) {
+            //return null for icon tabs only
+            return null;
+            //Return text
+            //return mFragmentTitleList.get(position);
+        }
     }
 }
