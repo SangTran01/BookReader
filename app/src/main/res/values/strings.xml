@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BookReader</string>
+    <string name="app_name">Book Genie</string>
     <string name="facebook_application_id">2421620388107958</string>
     <string name="fb_login_protocol_scheme">fb2421620388107958</string>
 
@@ -9,5 +9,7 @@
     <string name="sign_in_cancelled">Cancelled</string>
     <string name="no_internet_connection">No internet connection</string>
     <string name="unknown_error">Unknown Error</string>
+    <string name="nav_open">open</string>
+    <string name="nav_close">close</string>
 </resources>
 
