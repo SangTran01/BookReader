@@ -5,45 +5,42 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 import com.firebase.ui.auth.AuthUI;
+import com.firebase.ui.auth.ErrorCodes;
 import com.firebase.ui.auth.IdpResponse;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int REQUEST_CODE = 1000;
+    private static final int RC_SIGN_IN = 1000;
     private final String TAG = "main";
     ArrayList<City> cities = new ArrayList<City>();
 
     //FirebaseAuth
     private FirebaseAuth mAuth;
     private List<AuthUI.IdpConfig> providers;
-    private Button btnSignOut;
-
+    private Toolbar myToolbar;
+    Button btnSignIn;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "Create Main");
         setContentView(R.layout.activity_main);
+        myToolbar = findViewById(R.id.my_toolbar);
+        setSupportActionBar(myToolbar);
 
-        //---------------
-        //Firebase Auth
-        // Initialize Firebase Auth
-        mAuth = FirebaseAuth.getInstance();
 
         providers = Arrays.asList(
                 new AuthUI.IdpConfig.GoogleBuilder().build(),
@@ -51,24 +48,27 @@ public class MainActivity extends AppCompatActivity {
                 new AuthUI.IdpConfig.TwitterBuilder().build()
         );
 
-        btnSignOut = findViewById(R.id.btnSignOut);
+        btnSignIn = findViewById(R.id.btn_signin);
 
-        btnSignOut.setOnClickListener(new View.OnClickListener() {
+        btnSignIn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                FirebaseAuth.getInstance().signOut();
-//                LoginManager.getInstance().logOut();
-                AuthUI.getInstance()
-                        .signOut(getApplicationContext())
-                        .addOnCompleteListener(new OnCompleteListener<Void>() {
-                            public void onComplete(@NonNull Task<Void> task) {
-                                updateUI();
-                            }
-                        });
+                startActivityForResult(
+                        AuthUI.getInstance()
+                                .createSignInIntentBuilder()
+//                                .setIsSmartLockEnabled(true)
+                                .setIsSmartLockEnabled(!BuildConfig.DEBUG /* credentials */, true /* hints */)
+                                .setAvailableProviders(providers)
+                                .build(),
+                        RC_SIGN_IN
+                );
             }
         });
 
-        showSignOnOptions();
+        //---------------
+        //Firebase Auth
+        // Initialize Firebase Auth
+        mAuth = FirebaseAuth.getInstance();
 
         FirebaseApp.initializeApp(this);
 
@@ -93,70 +93,71 @@ public class MainActivity extends AppCompatActivity {
 //                });
 
         //Get data
-        firedb.collection("cities")
-                .get()
-                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                        if (task.isSuccessful()) {
-                            for (QueryDocumentSnapshot document : task.getResult()) {
-                                Log.d(TAG, document.getId() + " => " + document.getData());
-                                City city = document.toObject(City.class);
-                                cities.add(city);
-                            }
-                        } else {
-                            Log.d(TAG, "Error getting documents: ", task.getException());
-                        }
-                    }
-                });
+//        firedb.collection("cities")
+//                .get()
+//                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+//                    @Override
+//                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+//                        if (task.isSuccessful()) {
+//                            for (QueryDocumentSnapshot document : task.getResult()) {
+//                                Log.d(TAG, document.getId() + " => " + document.getData());
+//                                City city = document.toObject(City.class);
+//                                cities.add(city);
+//                            }
+//                        } else {
+//                            Log.d(TAG, "Error getting documents: ", task.getException());
+//                        }
+//                    }
+//                });
     }
 
     @Override
     public void onStart() {
         super.onStart();
+        Log.d(TAG, "START");
         FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
-            updateUI(currentUser);
+        Log.d(TAG, "user: " + currentUser);
+        if (mAuth.getCurrentUser() != null) {
+            //Go to other activity
+            Intent accountIntent = new Intent(MainActivity.this, AccountActivity.class);
+            startActivity(accountIntent);
+            finish();
         }
     }
 
+    // When the sign-in flow is complete, you will receive the result in onActivityResult
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == REQUEST_CODE) {
+        // RC_SIGN_IN is the request code you passed into startActivityForResult(...) when starting the sign in flow.
+        if (requestCode == RC_SIGN_IN) {
             IdpResponse response = IdpResponse.fromResultIntent(data);
 
+            // Successfully signed in
             if (resultCode == RESULT_OK) {
-                FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-                Toast.makeText(this, "" + user, Toast.LENGTH_SHORT).show();
+                startActivity(AccountActivity.createIntent(this, response));
+                finish();
             } else {
-                //Toast Provider Error
-                Toast.makeText(this, "" + response.getError().getMessage(), Toast.LENGTH_SHORT).show();
+                // Sign in failed
+                if (response == null) {
+                    // User pressed back button
+                    showSnackbar(R.string.sign_in_cancelled);
+                    return;
+                }
+
+                if (response.getError().getErrorCode() == ErrorCodes.NO_NETWORK) {
+                    showSnackbar(R.string.no_internet_connection);
+                    return;
+                }
+
+                showSnackbar(R.string.unknown_error);
+                Log.e(TAG, "Sign-in error: ", response.getError());
             }
         }
     }
 
-    private void updateUI(FirebaseUser currentUser) {
-        Toast.makeText(this, "User logged in " + currentUser, Toast.LENGTH_SHORT).show();
-        Intent accountIntent = new Intent(MainActivity.this, AccountActivity.class);
-        startActivity(accountIntent);
-        finish();
-    }
-
-    private void showSignOnOptions() {
-        startActivityForResult(
-                AuthUI.getInstance().createSignInIntentBuilder()
-                        .setAvailableProviders(providers)
-                        .setLogo(R.drawable.title)
-                        .build(), REQUEST_CODE
-        );
-    }
-
-    private void updateUI() {
-        Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
-        Intent accountIntent = new Intent(MainActivity.this, MainActivity.class);
-        startActivity(accountIntent);
-        finish();
+    private void showSnackbar(@StringRes int errorMessageRes) {
+        Snackbar.make(getCurrentFocus(), errorMessageRes, Snackbar.LENGTH_LONG).show();
     }
 }
